@@ -6,15 +6,15 @@ makes sure none of the standard rules is missing, so the configs can't drift apa
 
 import sys
 import tomllib
-from importlib.resources import files
 from pathlib import Path
 
 CONFIGS = ("ruff.toml", ".ruff.toml", "pyproject.toml")
+STANDARD = Path(__file__).with_name("ruff.toml")
 
 
 def standard_rules():
     """Returns the rule selectors in the packaged ruff.toml."""
-    return tomllib.loads(files("dev_standards").joinpath("ruff.toml").read_text())["lint"]["select"]
+    return tomllib.loads(STANDARD.read_text(encoding="utf-8"))["lint"]["select"]
 
 
 def selected_rules(data, base):
