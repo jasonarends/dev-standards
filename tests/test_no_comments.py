@@ -38,6 +38,21 @@ class CommentsTest(unittest.TestCase):
             with self.subTest(name=name, text=text):
                 self.assertEqual([], counted(name, text))
 
+    def test_go_doc_comments_are_docs(self):
+        self.assertEqual([], counted("a.go", "// Run starts it.\n// It blocks.\nfunc Run() {}\n"))
+        self.assertEqual(1, len(counted("a.go", "func Run() {\n\t// retry for now\n}\n")))
+        self.assertEqual(1, len(counted("a.go", "// stray note\n\nfunc Run() {}\n")))
+
+    def test_more_directives_are_not_comments(self):
+        for text in ["# ruff: noqa: E501\n", "x = f()  # pyright: ignore\n", "x = f()  # nosec\n"]:
+            with self.subTest(text=text):
+                self.assertEqual([], counted("a.py", text))
+        self.assertEqual([], counted("a.rs", "/*! Crate docs. */\n"))
+
+    def test_a_url_excuses_only_a_bare_link(self):
+        self.assertEqual(1, len(counted("a.py", "# hack around it, see https://x.y/q/1\n")))
+        self.assertEqual([], counted("a.ts", "// https://github.com/o/r/issues/1\n"))
+
     def test_python_that_does_not_tokenize_falls_back(self):
         self.assertEqual(1, len(counted("a.py", "def f(:\n    # broken\n")))
 
@@ -72,6 +87,13 @@ class MainTest(unittest.TestCase):
         self.assertEqual(0, self.run_main("a.py")[0])
         Path("a.py").write_text("# one\n# two\nx = 1\n")
         self.assertEqual(1, self.run_main("a.py")[0])
+
+    def test_update_drops_deleted_files(self):
+        Path("a.py").write_text("# one\n")
+        self.run_main("--update-baseline", "a.py")
+        Path("a.py").rename("b.py")
+        self.run_main("--update-baseline", "b.py")
+        self.assertEqual({"b.py": 1}, json.loads(Path(".no-comments-baseline.json").read_text()))
 
     def test_clean_file_leaves_the_baseline(self):
         Path("a.py").write_text("# one\n")

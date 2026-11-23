@@ -4,3 +4,10 @@
   entry: no-comments
   language: python
   types_or: [python, shell, javascript, ts, tsx, jsx, kotlin, java, go, rust, swift, c, c++, c#, dart, scala]
+- id: ruff-rules
+  name: ruff selects the standard rules
+  description: Fails when the repo's ruff config is missing a rule from dev-standards' ruff.toml.
+  entry: ruff-rules
+  language: python
+  pass_filenames: false
+  always_run: true

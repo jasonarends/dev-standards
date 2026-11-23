@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 
 [project.scripts]
 no-comments = "dev_standards.no_comments:main"
+ruff-rules = "dev_standards.ruff_rules:main"
 
 [build-system]
 requires = ["setuptools>=69"]
@@ -14,5 +15,8 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+dev_standards = ["ruff.toml"]
+
 [tool.ruff]
-extend = "ruff.toml"
+extend = "src/dev_standards/ruff.toml"

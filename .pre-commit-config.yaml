@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.6
+    rev: 9026c9127e153371d7a78dfcb0c45ae2046a3d10  # frozen: v0.17.6
     hooks:
       - id: ruff-check
       - id: ruff-format
@@ -9,7 +9,12 @@ repos:
     hooks:
       - id: no-comments
         name: no new code comments
-        entry: no-comments
-        language: python
-        additional_dependencies: ["."]
+        entry: python src/dev_standards/no_comments.py
+        language: system
         types_or: [python, shell]
+      - id: ruff-rules
+        name: ruff selects the standard rules
+        entry: python src/dev_standards/ruff_rules.py
+        language: system
+        pass_filenames: false
+        always_run: true
