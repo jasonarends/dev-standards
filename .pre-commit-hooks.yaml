@@ -1,0 +1,6 @@
+- id: no-comments
+  name: no new code comments
+  description: Fails when a file has more comment lines than its baseline allows.
+  entry: no-comments
+  language: python
+  types_or: [python, shell, javascript, ts, tsx, jsx, kotlin, java, go, rust, swift, c, c++, c#, dart, scala]

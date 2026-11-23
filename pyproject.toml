@@ -1,0 +1,18 @@
+[project]
+name = "dev-standards"
+version = "0.1.0"
+description = "Shared checks for Jason's repos: pre-commit hooks, lint config, CI workflow."
+requires-python = ">=3.11"
+
+[project.scripts]
+no-comments = "dev_standards.no_comments:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+extend = "ruff.toml"

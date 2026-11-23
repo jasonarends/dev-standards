@@ -1,0 +1,15 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.6
+    hooks:
+      - id: ruff-check
+      - id: ruff-format
+        args: [--check]
+  - repo: local
+    hooks:
+      - id: no-comments
+        name: no new code comments
+        entry: no-comments
+        language: python
+        additional_dependencies: ["."]
+        types_or: [python, shell]
