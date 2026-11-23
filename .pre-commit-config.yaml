@@ -9,12 +9,12 @@ repos:
     hooks:
       - id: no-comments
         name: no new code comments
-        entry: python src/dev_standards/no_comments.py
+        entry: python3 src/dev_standards/no_comments.py
         language: system
         types_or: [python, shell]
       - id: ruff-rules
         name: ruff selects the standard rules
-        entry: python src/dev_standards/ruff_rules.py
+        entry: python3 src/dev_standards/ruff_rules.py
         language: system
         pass_filenames: false
         always_run: true

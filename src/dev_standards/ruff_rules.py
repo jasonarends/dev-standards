@@ -8,7 +8,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-CONFIGS = ("ruff.toml", ".ruff.toml", "pyproject.toml")
+CONFIGS = (".ruff.toml", "ruff.toml", "pyproject.toml")
 STANDARD = Path(__file__).with_name("ruff.toml")
 
 
@@ -17,14 +17,24 @@ def standard_rules():
     return tomllib.loads(STANDARD.read_text(encoding="utf-8"))["lint"]["select"]
 
 
-def selected_rules(data, base):
-    """Returns the selectors a ruff config enables, following `extend` to a parent config."""
+class ConfigError(Exception):
+    """Raised when a ruff config's `extend` chain can't be read."""
+
+
+def lint_rules(data, base, seen=()):
+    """Returns (selected, ignored) selectors from a ruff config, following `extend`."""
     lint = data.get("lint", data)
-    rules = [*lint.get("select", []), *lint.get("extend-select", [])]
+    selected = [*lint.get("select", []), *lint.get("extend-select", [])]
+    ignored = [*lint.get("ignore", []), *lint.get("extend-ignore", [])]
     if parent := data.get("extend"):
-        path = base / parent
-        rules += selected_rules(tomllib.loads(path.read_text(encoding="utf-8")), path.parent)
-    return rules
+        path = (base / parent).resolve()
+        if path in seen:
+            raise ConfigError(f"`extend` loops back to {parent}")
+        if not path.exists():
+            raise ConfigError(f"`extend` points at {parent}, which doesn't exist")
+        more = lint_rules(tomllib.loads(path.read_text(encoding="utf-8")), path.parent, (*seen, path))
+        selected, ignored = selected + more[0], ignored + more[1]
+    return selected, ignored
 
 
 def repo_lint_config():
@@ -37,23 +47,34 @@ def repo_lint_config():
             data = data.get("tool", {}).get("ruff")
             if data is None:
                 continue
-        return name, selected_rules(data, path.parent)
+        return name, lint_rules(data, path.parent)
     return None, None
 
 
-def covered(rule, selected):
-    return any(s == "ALL" or rule.startswith(s) for s in selected)
+def covered(rule, selectors):
+    """True if a selector enables the rule: ALL, an exact match, or a prefix ending before a digit."""
+    return any(s == "ALL" or rule == s or (rule.startswith(s) and rule[len(s)].isdigit()) for s in selectors)
+
+
+def overlaps(rule, selectors):
+    """True if a selector turns off any part of the rule, including a narrower code in its family."""
+    return covered(rule, selectors) or any(s.startswith(rule) and s[len(rule) :].isdigit() for s in selectors)
 
 
 def main():
-    name, selected = repo_lint_config()
-    if selected is None:
+    try:
+        name, rules = repo_lint_config()
+    except ConfigError as e:
+        print(f"ruff-rules: {e}. Fix the path so ruff and this check read the same config.")
+        return 1
+    if rules is None:
         print("ruff-rules: no ruff config found. Copy dev-standards' ruff.toml `[lint] select` into ruff.toml.")
         return 1
-    missing = [r for r in standard_rules() if not covered(r, selected)]
+    selected, ignored = rules
+    missing = [r for r in standard_rules() if not covered(r, selected) or overlaps(r, ignored)]
     if missing:
-        print(f"ruff-rules: {name} doesn't select {', '.join(missing)}. Add them to `select`, and baseline any")
-        print("  existing violations with `per-file-ignores` so only new ones fail.")
+        print(f"ruff-rules: {name} doesn't enforce {', '.join(missing)}. Select them (and drop any global")
+        print("  `ignore` of them), and baseline existing violations with `per-file-ignores` so only new ones fail.")
         return 1
     return 0
 
