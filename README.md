@@ -6,7 +6,8 @@ repo contains these pieces:
 - A pre-commit hook, `no-comments`, that bans new code comments and tracks existing ones in
   a per-file baseline.
 - A pre-commit hook, `ruff-rules`, that fails when a repo's Ruff config doesn't select every
-  rule in the canonical config.
+  rule in the canonical config. It doesn't lint code. To lint code, you add Astral's
+  `ruff-check` hook, as described in the adoption steps.
 - A canonical Ruff config, [`src/dev_standards/ruff.toml`](src/dev_standards/ruff.toml).
 - A reusable GitHub Actions lint workflow, `.github/workflows/lint.yml`.
 
@@ -51,11 +52,27 @@ Follow these steps in order.
       pipx install git+https://github.com/jasonarends/dev-standards@v0.1.0
       ```
 
-   1. Write the baseline from the repo root. List the files with the same extensions the
-      hook checks. This example covers Python and shell files:
+   1. Write the baseline from the repo root. List every file the hook checks, not only
+      Python and shell files. The hook checks Python, shell, JavaScript, TypeScript, Kotlin,
+      Java, Go, Rust, Swift, C, C++, C#, Dart, and Scala files. It also checks extensionless
+      scripts, such as `gradlew`, that it identifies as shell by their shebang. Add a
+      pattern to `git ls-files` for each extension your repo contains. This example covers
+      Python, shell, and Kotlin files:
 
       ```sh
-      no-comments --update-baseline $(git ls-files '*.py' '*.sh')
+      git ls-files -z '*.py' '*.sh' '*.kt' '*.kts' gradlew | xargs -0 no-comments --update-baseline
+      ```
+
+      Pass the file list straight to the command, as `xargs` does here. Don't store it in a
+      shell variable first: zsh doesn't split an unquoted variable into words, so the tool
+      receives one argument that names no file, and it writes an empty `{}` baseline
+      without an error. The `-z` and `-0` options keep file names that contain spaces intact.
+
+   1. Check that the baseline isn't empty. The command prints the number of files that have
+      comments. If it prints `0` and you know the repo has comments, the file list was wrong:
+
+      ```sh
+      jq length .no-comments-baseline.json
       ```
 
    1. Commit `.no-comments-baseline.json` with the pre-commit config.
@@ -63,8 +80,36 @@ Follow these steps in order.
 1. Copy the `[lint] select` list from
    [`src/dev_standards/ruff.toml`](src/dev_standards/ruff.toml) into the repo's own Ruff
    config (`ruff.toml`, `.ruff.toml`, or the `[tool.ruff]` table in `pyproject.toml`). Baseline
-   existing violations with `per-file-ignores`, so only new violations fail. Then add the
-   `ruff-rules` hook so the config can't drift. Keep the `line-length` value too.
+   existing violations with `per-file-ignores`, so only new violations fail. Keep the
+   `line-length` value too. Then add the hooks:
+
+   1. Set `target-version` in the Ruff config, or `requires-python` in `pyproject.toml`, to
+      the Python version your code runs on. Without it, Ruff falls back to a default
+      version, and the baseline can drift.
+
+   1. Add the `ruff-rules` hook so the config can't drift. It checks only the config, so it
+      never lints code.
+
+   1. Add Astral's `ruff-check` hook to `.pre-commit-config.yaml`. This hook lints code, so
+      it's what enforces the `per-file-ignores` baseline. Use the same Ruff version you
+      used to write the baseline, because a different version reports different
+      violations. Pin the hook to a commit, because it's a third-party repo whose tag can
+      move. Put the version in a `# frozen:` comment. The `pre-commit autoupdate --freeze`
+      command writes this form:
+
+      ```yaml
+      - repo: https://github.com/astral-sh/ruff-pre-commit
+        rev: 9026c9127e153371d7a78dfcb0c45ae2046a3d10  # frozen: v0.17.6
+        hooks:
+          - id: ruff-check
+      ```
+
+   1. Confirm that the hook lints code. Add an unused import, such as `import os`, to a
+      Python file, then run the hook on that file. The hook must fail:
+
+      ```sh
+      pre-commit run ruff-check --files path/to/file.py
+      ```
 
 1. Call the reusable workflow from a workflow file such as `.github/workflows/ci.yml`:
 
